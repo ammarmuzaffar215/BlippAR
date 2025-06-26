@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <link rel="shortcut icon" href="#" />
+    <title>Blippar WebAR 360° Model View</title>
+
+    <!-- A-Frame + Components -->
+    <script src="https://ar-libs.blippar.com/aframe/1.3.0/aframe-v1.3.0.min.js"></script>
+    <script src="https://ar-libs.blippar.com/components/aframe-extras/6.1.1/aframe-extras.min.js"></script>
+    <script src="https://unpkg.com/aframe-environment-component@1.3.2/dist/aframe-environment-component.min.js"></script>
+
+    <!-- Draco decoder scripts -->
+    <script src="https://www.gstatic.com/draco/v1/decoders/draco_decoder.js"></script>
+    <script src="https://www.gstatic.com/draco/v1/decoders/draco_wasm_wrapper.js"></script>
+
+    <!-- Blippar WebAR SDK -->
+    <script src="blippar-webar-sdk/webar-sdk/webar-sdk-v2.0.8.min.js"
+      webar-mode="surface-tracking"
+      auto-init="false"
+      auto-start-tracking="true"
+      static-camera="false"
+      render-scene-on-desktop="false"
+      show-qr-card-on-desktop="false"
+      ios-camera-permission="true"
+      enable-photo-ui="true"
+      debug-mode="false"
+      skip-splash-screen="false"
+      minimal-ui="false"
+      show-guide-view="true"
+      gesture-rotation-speed="1"
+      gesture-scale-min="0.5"
+      gesture-scale-max="2">
+    </script>
+  </head>
+
+  <body>
+    <a-scene
+      webar-scene="key: 293bba48-db70-4c4b-af89-62f9bc30b82d"
+      vr-mode-ui="enabled: false"
+      device-orientation-permission-ui="enabled: false"
+      loading-screen="enabled: false"
+      renderer="colorManagement: true;"
+      gltf-model="dracoDecoderPath: https://www.gstatic.com/draco/v1/decoders/">
+
+      <!-- Only ONE camera -->
+      <a-camera webar-camera look-controls="enabled: true" wasd-controls-enabled="false"></a-camera>
+
+      <!-- Environment -->
+      <a-assets timeout="60000">
+        <a-asset-item id="astronaut" src="blippar-webar-sdk/aframe/models/animated-astronaut/Animated-Astronaut-Character-in-Space-Suit-Loop.glb"></a-asset-item>
+      </a-assets>
+      <a-entity id="deskenv" environment="preset: starry; groundColor: #222; gridColor: #f28500;"></a-entity>
+      <a-light type="ambient" color="#ffffff"></a-light>
+
+      <!-- AR Content Stage -->
+      <a-entity webar-stage position="0 1 -2">
+        <a-entity webar-ux-control="stageCursorUX: true; userGestureRotation: true; userGestureScale: true">
+          <a-entity
+            gltf-model="#astronaut"
+            id="astronautModel"
+            animation-mixer="clip:moon_walk"
+            rotation="0 0 0"
+            position="0 0 0"
+            scale="0.25 0.25 0.25"
+            draco-loader="decoderPath: https://www.gstatic.com/draco/v1/decoders/"
+            webar-loadmonitor="elType: glb">
+            
+            <!-- Auto-Rotate Animation -->
+            <a-animation
+              attribute="rotation"
+              dur="10000"
+              to="0 360 0"
+              repeat="indefinite">
+            </a-animation>
+
+          </a-entity>
+        </a-entity>
+      </a-entity>
+
+    </a-scene>
+
+    <!-- WebAR SDK Setup -->
+    <script>
+      WEBARSDK.Init();
+
+      WEBARSDK.SetStageReadyCallback(() => {
+        console.info('Stage is ready now!!!');
+      });
+
+      WEBARSDK.SetGuideViewCallbacks(
+        () => { console.log("Start guide animation"); },
+        () => { console.log("Stop guide animation"); }
+      );
+
+      WEBARSDK.SetPrepareForCameraTransitionCallback(() => {
+        const deskenv = document.getElementById("deskenv");
+        if (deskenv) deskenv.parentNode.removeChild(deskenv);
+      });
+    </script>
+  </body>
+</html>

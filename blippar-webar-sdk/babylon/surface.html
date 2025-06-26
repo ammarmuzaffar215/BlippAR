@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta charset="utf-8"/>
+        <link rel="shortcut icon" href="#" />
+        <title>Babylon.js WebAR SDK</title>
+        <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,shrink-to-fit=no,user-scalable=no,viewport-fit=cover">
+        <meta name="mobile-web-app-capable" content="yes">
+        <meta name="theme-color" content="black">
+
+        <!-- Babylon.js -->
+        <script src="https://cdn.babylonjs.com/babylon.js"></script>
+        <script src="https://cdn.babylonjs.com/loaders/babylonjs.loaders.min.js"></script>
+
+        <!-- WebAR SDK -->
+        <!-- PS: User may overload the splash screen by passing function string to on-load parameter
+         e.g. on-load = "LoadMySplash()" -->
+
+        <script src="../webar-sdk/webar-sdk-v2.0.8.min.js?license-key=xxxxxxxx-1111-2222-3333-yyyyyyyyyyyy"
+          on-load=""
+          webar-mode="surface-tracking"
+          debug-mode="false"
+          auto-init="true"
+          auto-start-tracking="true"
+          rendering-engine="babylonjs"
+          static-camera="false"
+          render-scene-on-desktop="false"
+          show-qr-card-on-desktop="false"
+          ios-camera-permission="true"
+          enable-photo-ui="true"
+
+          alert-border-color="#000000"
+          alert-border-width="2px"
+          alert-background-color="#FFFFFF"
+          alert-message-text-color="#000000"
+          alert-button-color="#000000"
+          alert-button-text-color="#FFFFFF"
+          alert-button-height="30px"
+          alert-camera-permission-text="We require access to your camera for this experience to work."
+          alert-motion-and-camera-permission-text="We require access to your camera and motion sensors for this experience to work."
+          alert-camera-permission-button-text="OK"
+          alert-box-width="250px"
+          alert-box-height="125px"
+          alert-box-font-size="17px"
+
+          show-guide-view="true"
+          show-guide-animation-url=""
+
+          gesture-rotation-speed="1"
+          gesture-scale-min="0.5"
+          gesture-scale-max="2"
+
+          hide-reset-button="false"></script>
+
+
+        <style>
+            #renderCanvas {
+              position: absolute;
+              left: 0;
+              top: 0;
+              width: 100vw;
+              height: 100vh;
+              touch-action: none;
+            }
+        </style>
+    </head>
+<body>
+    <canvas id="renderCanvas"></canvas>
+    <script>
+        var canvas = document.getElementById("renderCanvas");
+
+        var engine = null;
+        var sceneToRender = null;
+        var webarStage = null;
+        var webarUXControl = null;
+        var scaleByFactor = function(obj, factor) {
+            obj.scaling.x = obj.scaling.x * factor;
+            obj.scaling.y = obj.scaling.y * factor;
+            obj.scaling.z = obj.scaling.z * factor;
+        }
+
+        function adjustMeshForDevice(webarUXControlMesh) {
+            const disableStageCursor = !(webarUXControlMesh?.webarOptions?.stageCursorUX) ?? true;
+            
+            if (/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) && !disableStageCursor) {
+
+                return {
+                    angle: -Math.PI / 2,
+                    yMeshPosition: 0.2
+                };
+            } else {
+                return {
+                    angle: Math.PI / 2,
+                    yMeshPosition: -0.2
+                };
+            }
+        }
+
+        var createDefaultEngine = function() { return new BABYLON.Engine(canvas, true, { preserveDrawingBuffer: true, stencil: true,  disableWebGL2Support: false}); };
+        var createScene = function () {
+            var scene = new BABYLON.Scene(engine);
+            scene.environmentTexture = BABYLON.CubeTexture.CreateFromPrefilteredData("./models/environment.dds", scene);
+
+            var camera = new BABYLON.UniversalCamera("camera1", new BABYLON.Vector3(0, 0, 0), scene);
+
+            var light = new BABYLON.HemisphericLight("HemiLight", new BABYLON.Vector3(5, 10, -2), scene);
+            light.intensity = 0.7;
+
+            // Create an empty webarStage mesh. Models/meshes appended as a children to this webarStage mesh will be displayed on the surface.
+            webarStage = new BABYLON.Mesh("webarStage", scene);
+
+            //  Create a 'webar-ux-control' Mesh
+            webarUXControl = new BABYLON.Mesh("webar-ux-control", scene);
+            webarUXControl.setParent(webarStage); // Set webarStage as parent to webarUXControl mesh so that it appears on the surface
+
+            // Set webar options to webarUXControl mesh to enable/disable stage cursor UX, user gesture rotation and scaling
+            webarUXControl.webarOptions = {
+                stageCursorUX: true,
+                userGestureRotation: true,
+                userGestureScale: true
+            };
+
+            // Import a gltf model to the scene and scale appropriately. No need to set the parent to webarUXControl mesh.
+            // All gltf models imported to the scene are created under __root__ node by babylon.
+            // After the complete scene is ready, it is models under __root_ node are moved to webarUXControl mesh
+            // to appear on the surface
+            BABYLON.SceneLoader.ImportMesh("", "./models/animated-astronaut/", "Animated-Astronaut.glb", scene, function (meshes, particleSystems, skeletons) {
+                let webarUXControlMesh = webarStage.getChildMeshes().find(mesh => mesh.name === "webar-ux-control");
+                const deviceAdjustments = adjustMeshForDevice(webarUXControlMesh);
+                let angle = deviceAdjustments.angle;
+                let yMeshPosition = deviceAdjustments.yMeshPosition;
+
+                for (mesh of meshes) {
+                    if (mesh.name !== '__root__') {
+                        // Move the loaded models to webarUXControl
+                        mesh.setParent(webarUXControl);
+                        scaleByFactor(mesh, 0.25);
+                    }
+                }
+                
+                // Pass babylon canvas, scene, camera, webarStage mesh & webarUXControl(optional) to WebarSdk to initialize surface tracking
+                WEBARSDK.InitBabylonJs(canvas, scene, camera, webarStage, webarUXControl);
+
+                // For the desktop experience, render the scene on the desktop
+                webarStage.position.x = 0;
+                webarStage.position.y = -0.75;
+                webarStage.position.z = 3;
+                let yQuat = new BABYLON.Quaternion();
+                BABYLON.Quaternion.FromEulerAnglesToRef(0, Math.PI, 0, yQuat);
+                webarStage.rotationQuaternion = yQuat;
+            });
+
+            return scene;
+        };
+
+
+        window.initFunction = async function() {
+            var asyncEngineCreation = async function() {
+                try {
+                    return createDefaultEngine();
+                } catch(e) {
+                console.log("the available createEngine function failed. Creating the default engine instead");
+                    return createDefaultEngine();
+                }
+            }
+
+            window.engine = await asyncEngineCreation();
+            if (!engine) throw 'engine should not be null.';
+            window.scene = createScene();
+        };
+
+        initFunction().then(() => {
+            sceneToRender = window.scene;
+            sceneToRender.executeWhenReady(function () {
+                engine.runRenderLoop(function () {
+                    if (sceneToRender && sceneToRender.activeCamera) {
+                        sceneToRender.render();
+                    }
+                });
+            });
+        });
+
+        window.addEventListener("resize", function () {
+            engine.resize();
+        });
+
+        WEBARSDK.SetStageReadyCallback(() => {
+            console.info('Stage is ready now!!!');
+        });
+
+    </script>
+</body>
+</html>
