@@ -1,12 +1,14 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
   <head>
-    <meta charset="UTF-8" />
-    <title>3D Astronaut with Joystick</title>
+    <meta charset="utf-8" />
+    <title>Blippar AR with Joystick and Astronaut</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
     <!-- A-Frame Core -->
-    <script src="https://aframe.io/releases/1.3.0/aframe.min.js"></script>
+    <script src="https://ar-libs.blippar.com/aframe/1.3.0/aframe-v1.3.0.min.js"></script>
+    <script src="https://ar-libs.blippar.com/components/aframe-extras/6.1.1/aframe-extras.min.js"></script>
+    <script src="https://unpkg.com/aframe-environment-component@1.3.2/dist/aframe-environment-component.min.js"></script>
 
     <!-- Joystick Controls -->
     <script src="https://cdn.jsdelivr.net/gh/jesusgollonet/aframe-joystick-controls@1.0.0/dist/aframe-joystick-controls.min.js"></script>
@@ -15,8 +17,24 @@
     <script src="https://www.gstatic.com/draco/v1/decoders/draco_decoder.js"></script>
     <script src="https://www.gstatic.com/draco/v1/decoders/draco_wasm_wrapper.js"></script>
 
-    <!-- A-Frame Environment -->
-    <script src="https://unpkg.com/aframe-environment-component@1.3.2/dist/aframe-environment-component.min.js"></script>
+    <!-- Blippar WebAR SDK -->
+    <script src="blippar-webar-sdk/webar-sdk/webar-sdk-v2.0.8.min.js"
+      webar-mode="surface-tracking"
+      auto-init="false"
+      auto-start-tracking="true"
+      static-camera="false"
+      render-scene-on-desktop="false"
+      show-qr-card-on-desktop="false"
+      ios-camera-permission="true"
+      enable-photo-ui="true"
+      debug-mode="false"
+      skip-splash-screen="false"
+      minimal-ui="false"
+      show-guide-view="true"
+      gesture-rotation-speed="1"
+      gesture-scale-min="0.5"
+      gesture-scale-max="2">
+    </script>
 
     <style>
       body { margin: 0; overflow: hidden; }
@@ -25,46 +43,75 @@
 
   <body>
     <a-scene
+      webar-scene="key: 293bba48-db70-4c4b-af89-62f9bc30b82d"
+      vr-mode-ui="enabled: false"
+      device-orientation-permission-ui="enabled: false"
+      loading-screen="enabled: false"
       renderer="colorManagement: true;"
       gltf-model="dracoDecoderPath: https://www.gstatic.com/draco/v1/decoders/">
 
       <!-- Assets -->
-      <a-assets>
+      <a-assets timeout="60000">
         <a-asset-item id="astronaut" src="blippar-webar-sdk/aframe/models/animated-astronaut/Animated-Astronaut-Character-in-Space-Suit-Loop.glb"></a-asset-item>
       </a-assets>
 
-      <!-- Environment + Lighting -->
-      <a-entity environment="preset: starry; ground: flat; grid: none;"></a-entity>
-      <a-light type="ambient" intensity="1" color="#ffffff"></a-light>
-      <a-light type="directional" intensity="0.6" position="1 3 2" target="#astronautModel"></a-light>
+      <!-- Optional: Background Environment -->
+      <a-entity id="deskenv" environment="preset: starry; groundColor: #222; gridColor: #f28500;"></a-entity>
+      <a-light type="ambient" color="#ffffff" intensity="1"></a-light>
 
-      <!-- Camera Rig with Joystick -->
-      <a-entity id="cameraRig"
-        position="0 1.6 5"
+      <!-- Camera Rig + Joystick -->
+      <a-entity
+        id="cameraRig"
+        position="0 1.6 0"
         movement-controls="enabled: true"
         joystick-controls="left: true; right: false">
-
-        <a-camera look-controls="enabled: true"></a-camera>
+        
+        <!-- WebAR-enabled Camera -->
+        <a-camera webar-camera look-controls="enabled: true"></a-camera>
       </a-entity>
 
-      <!-- Animated Astronaut Model -->
-      <a-entity
-        id="astronautModel"
-        gltf-model="#astronaut"
-        position="0 0 0"
-        scale="0.25 0.25 0.25"
-        rotation="0 0 0"
-        animation-mixer>
+      <!-- Model in AR stage -->
+      <a-entity webar-stage position="0 1 -2">
+        <a-entity webar-ux-control="stageCursorUX: true; userGestureRotation: true; userGestureScale: true">
+          <a-entity
+            gltf-model="#astronaut"
+            id="astronautModel"
+            animation-mixer
+            rotation="0 0 0"
+            position="0 0 0"
+            scale="0.25 0.25 0.25"
+            webar-loadmonitor="elType: glb">
 
-        <!-- Optional Auto-Rotation -->
-        <a-animation
-          attribute="rotation"
-          to="0 360 0"
-          dur="10000"
-          repeat="indefinite">
-        </a-animation>
+            <!-- Auto-rotate model -->
+            <a-animation
+              attribute="rotation"
+              to="0 360 0"
+              dur="10000"
+              repeat="indefinite">
+            </a-animation>
+          </a-entity>
+        </a-entity>
       </a-entity>
 
     </a-scene>
+
+    <!-- Blippar SDK setup -->
+    <script>
+      WEBARSDK.Init();
+
+      WEBARSDK.SetStageReadyCallback(() => {
+        console.info('Stage is ready!');
+      });
+
+      WEBARSDK.SetGuideViewCallbacks(
+        () => console.log("Start guide view"),
+        () => console.log("Stop guide view")
+      );
+
+      WEBARSDK.SetPrepareForCameraTransitionCallback(() => {
+        const deskenv = document.getElementById("deskenv");
+        if (deskenv) deskenv.parentNode.removeChild(deskenv);
+      });
+    </script>
   </body>
 </html>
